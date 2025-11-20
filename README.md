@@ -24,26 +24,33 @@ For more control, use per-platform SDKs (Twitter, Instagram, Reddit, etc.) and e
 
 ## Installation
 
-Install the multi-network client (Ayrshare SDK) and the example dependencies shown below.
+Install dependencies:
 
 ```bash
-npm install social-media-api
+npm install
+```
 
-# (optional) Mastra + AI tooling
-npm install mastra @mastra/core zod @ai-sdk/openai
-npm install -D typescript @types/node
+Or manually install packages:
+
+```bash
+npm install social-media-api @mastra/core zod dotenv
+npm install -D typescript @types/node mastra
 ```
 
 ## Configuration
 
-Create a `.env` file at the project root with your keys:
+Copy `.env.example` to `.env` and add your keys:
+
+```bash
+cp .env.example .env
+```
+
+Then edit `.env`:
 
 ```env
 OPENAI_API_KEY=sk-...
 AYRSHARE_API_KEY=your_ayrshare_key_here
 ```
-
-Make sure your app loads `.env` (e.g., via `dotenv`) or that your deployment environment provides these variables.
 
 ## Usage
 
@@ -79,9 +86,9 @@ This gives you a generic social-bot layer: one function that publishes to multip
 
 ### 2) Intelligent workflow with Mastra
 
-Use Mastra to create tools and agents. The agent can draft posts, request human approval, and call platform-specific tools to publish.
+Use Mastra to create tools and agents. The agent can draft posts and call tools to publish.
 
-Example tool: `src/mastra/tools/social-post-tool.ts`
+**Tool** (`src/mastra/tools/social-post-tool.ts`):
 
 ```ts
 import { createTool } from "@mastra/core/tools";
@@ -111,44 +118,51 @@ export const socialPostTool = createTool({
       .nonempty()
       .describe("Which platforms to publish to"),
   }),
-  outputSchema: z.object({ id: z.string().optional(), raw: z.any() }),
+  outputSchema: z.object({
+    output: z.string(),
+    id: z.string().optional(),
+  }),
   execute: async ({ context }) => {
     const res = await social.post({
       post: context.text,
       platforms: context.platforms,
     });
-    return { id: (res as any).id, raw: res };
+    return {
+      output: `Posted successfully to ${context.platforms.join(", ")}`,
+      id: (res as any).id,
+    };
   },
 });
 ```
 
-Example agent: `src/mastra/agents/social-agent.ts`
+**Agent** (`src/mastra/agents/social-agent.ts`):
 
 ```ts
-import { Agent } from "@mastra/core/agent";
-import { openai } from "@ai-sdk/openai";
+import { Agent } from "@mastra/core";
 import { socialPostTool } from "../tools/social-post-tool";
 
 export const socialAgent = new Agent({
   name: "social-bot",
-  instructions: `You are an assistant that writes short, engaging, on-brand social media posts.\\n- Keep posts within the typical limits of the target platforms.\\n- Use clear, friendly language.\\n- Only call the social-post tool when explicitly asked to publish.`,
-  model: openai("gpt-4o-mini"),
+  instructions:
+    "You are an assistant that writes short, engaging, on-brand social media posts. " +
+    "Keep posts within the typical limits of the target platforms. " +
+    "Use clear, friendly language. " +
+    "Only call the social-post tool when explicitly asked to publish.",
+  model: "openai/gpt-4o-mini",
   tools: { socialPostTool },
 });
 ```
 
-Register Mastra and run a simple runner:
-
-`src/mastra/index.ts`
+**Mastra setup** (`src/mastra/index.ts`):
 
 ```ts
-import { Mastra } from "@mastra/core/mastra";
+import { Mastra } from "@mastra/core";
 import { socialAgent } from "./agents/social-agent";
 
 export const mastra = new Mastra({ agents: { socialAgent } });
 ```
 
-`src/index.ts` (runner):
+**Runner** (`src/index.ts`):
 
 ```ts
 import { mastra } from "./mastra";
@@ -156,8 +170,7 @@ import { mastra } from "./mastra";
 async function run() {
   const agent = mastra.getAgent("socialAgent");
   const result = await agent.generate(
-    `Create a fun launch post for our new AI feature and then publish it to Twitter and LinkedIn. The feature: "Automatic weekly summaries of your team Slack channels." Use the social-post tool to actually publish.`,
-    { tools: { socialPost: { platforms: ["twitter", "linkedin"] } } as any }
+    `Create a fun launch post for our new AI feature and then publish it to Twitter and LinkedIn. The feature: "Automatic weekly summaries of your team Slack channels." Use the social-post tool to actually publish.`
   );
 
   console.log(result.text);
@@ -166,11 +179,12 @@ async function run() {
 run().catch(console.error);
 ```
 
-Typical workflow:
+**Run it:**
 
-- Agent drafts posts.
-- Optional human approval step.
-- Agent calls `socialPostTool` (or platform-specific tools) to publish.
+```bash
+npm run build
+npm start
+```
 
 ## Alternatives — rolling your own connectors
 
@@ -184,20 +198,38 @@ Wrap each API in a Mastra tool (for example, `twitterPostTool`, `redditPostTool`
 
 ## Troubleshooting
 
-- If posts fail, inspect the raw response from the platform client (returned as `raw` by the tool).
-- Check API rate limits and credentials.
-- For Mastra issues, verify input/output schemas and that tools are correctly registered with the agent.
+- **Posts fail**: Check API credentials and rate limits
+- **Build errors**: Run `npm install` to ensure all dependencies are installed
+- **Type errors**: Run `npm run typecheck` to see detailed TypeScript errors
+
+## Project Structure
+
+```
+social-bot/
+├── src/
+│   ├── mastra/
+│   │   ├── tools/
+│   │   │   └── social-post-tool.ts    # Ayrshare posting tool
+│   │   ├── agents/
+│   │   │   └── social-agent.ts        # Mastra agent definition
+│   │   └── index.ts                   # Mastra setup
+│   ├── index.ts                       # Main runner (with Mastra)
+│   └── simple-demo.ts                 # Simple demo (no AI)
+├── .env.example                       # Environment variable template
+├── package.json
+├── tsconfig.json
+└── README.md
+```
+
+## Scripts
+
+```bash
+npm run typecheck    # Type-check without building
+npm run build        # Compile TypeScript to dist/
+npm start            # Run Mastra agent (dist/index.js)
+npm run demo         # Run simple demo (dist/simple-demo.js)
+```
 
 ## License
 
-Add your license information here (e.g., `MIT`).
-
----
-
-If you'd like, I can also:
-
-- Add example files to `src/` with the code shown above.
-- Create a `README-converted.md` instead of overwriting (you asked to overwrite, so I updated `README.md`).
-- Commit changes and open a draft PR.
-
-Tell me which next step you'd like.
+MIT
