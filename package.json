@@ -1,0 +1,23 @@
+{
+  "name": "social-bot",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p .",
+    "start": "node dist/index.js",
+    "demo": "node dist/simple-demo.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.25",
+    "mastra": "^0.18.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@mastra/core": "^0.1.0",
+    "@ai-sdk/openai": "^1.0.0",
+    "dotenv": "^16.0.0",
+    "social-media-api": "^1.0.0",
+    "zod": "^3.0.0"
+  }
+}
