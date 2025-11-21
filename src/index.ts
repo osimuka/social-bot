@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { mastra } from "./mastra/index.js";
+import { mastra } from "./setup.js";
 
 async function run() {
   try {

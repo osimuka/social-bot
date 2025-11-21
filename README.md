@@ -1,94 +1,103 @@
-<!-- Converted and reorganized README -->
-
 # social-bot
 
-A compact guide to building a TypeScript-based social posting bot that can publish to multiple networks. This repository shows two approaches:
+An intelligent TypeScript bot that uses AI to draft and publish social media posts across multiple platforms (Twitter, LinkedIn, Facebook, Instagram, Reddit, TikTok, YouTube) using the Mastra AI framework and Ayrshare API.
 
-- Use a single multi-network API (`ayrshare` / `social-media-api`) for a generic publishing layer.
-- Or implement per-platform connectors and wire them into a Mastra agent for intelligent drafting and publishing.
+## Features
 
-## Contents
+- 🤖 **AI-Powered Content Generation** — Uses OpenAI GPT-4o-mini to draft engaging posts
+- 🌐 **Multi-Platform Publishing** — Post to 7+ social networks from one API call
+- 🛠️ **Extensible Tools** — Easy to add custom platform connectors
+- 📝 **Type-Safe** — Full TypeScript support with strict typing
+- ⚡ **Simple Setup** — Get started in minutes
 
-- **Overview** — what this project demonstrates
-- **Installation** — packages to install
-- **Configuration** — environment variables and keys
-- **Usage** — simple examples using `social-media-api` and a Mastra agent
-- **Alternatives** — notes on rolling your own connectors
-- **License** — add your license info
+## Quick Start
 
-## Overview
+```bash
+# Clone and install
+git clone https://github.com/osimuka/social-bot.git
+cd social-bot
+npm install
 
-If you need a single codepath that can post to many social networks, using a multi-network API (like Ayrshare) is the simplest option. It provides posting, scheduling, analytics, comments, and history from one client.
+# Configure
+cp .env.example .env
+# Edit .env with your API keys
 
-For more control, use per-platform SDKs (Twitter, Instagram, Reddit, etc.) and expose each as a Mastra tool. Then a Mastra agent can draft content, choose the right tools, and optionally publish.
+# Build and run
+npm run build
+npm start
+```
+
+## How It Works
+
+This bot combines three powerful tools:
+
+1. **[Mastra](https://mastra.ai)** — AI agent framework for building tool-calling workflows
+2. **[Ayrshare](https://ayrshare.com)** — Multi-platform social media API
+3. **[OpenAI GPT-4o-mini](https://openai.com)** — AI model for content generation
+
+The agent receives a prompt, drafts content, and uses the `socialPostTool` to publish across platforms.
 
 ## Installation
-
-Install dependencies:
 
 ```bash
 npm install
 ```
 
-Or manually install packages:
+**Dependencies:**
 
-```bash
-npm install social-media-api @mastra/core zod dotenv
-npm install -D typescript @types/node mastra
-```
+- `@mastra/core` — Agent framework
+- `social-media-api` — Ayrshare SDK
+- `zod` — Schema validation
+- `dotenv` — Environment variables
 
 ## Configuration
 
-Copy `.env.example` to `.env` and add your keys:
+1. **Get API Keys:**
+   - OpenAI: [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+   - Ayrshare: [ayrshare.com](https://ayrshare.com)
 
-```bash
-cp .env.example .env
-```
+2. **Setup `.env`:**
 
-Then edit `.env`:
+   ```bash
+   cp .env.example .env
+   ```
 
-```env
-OPENAI_API_KEY=sk-...
-AYRSHARE_API_KEY=your_ayrshare_key_here
-```
+   Edit `.env`:
+
+   ```env
+   OPENAI_API_KEY=sk-...
+   AYRSHARE_API_KEY=your_ayrshare_key_here
+   ```
 
 ## Usage
 
-Below are two usage patterns: a simple direct publisher using `social-media-api`, and a Mastra-based agent that drafts and publishes.
+### Option 1: Simple Direct Publishing (No AI)
 
-### 1) Simple publisher (Ayrshare / `social-media-api`)
-
-Install `social-media-api` and use it directly to post to multiple platforms from one call.
-
-Example (Node/TypeScript):
+Use `simple-demo.ts` for direct posting without AI:
 
 ```ts
 import SocialMediaAPI from "social-media-api";
 
 const social = new SocialMediaAPI(process.env.AYRSHARE_API_KEY!);
 
-async function demo() {
-  const post = await social.post({
-    post: "Hello from my TypeScript bot 🤖",
-    platforms: ["twitter", "facebook", "linkedin"], // other options: "instagram", "reddit", "tiktok", etc.
-  });
-
-  console.log("Posted:", post);
-
-  const history = await social.history();
-  console.log("History:", history);
-}
-
-demo().catch(console.error);
+const post = await social.post({
+  post: "Hello from my TypeScript bot 🤖",
+  platforms: ["twitter", "linkedin"],
+});
 ```
 
-This gives you a generic social-bot layer: one function that publishes to multiple networks.
+Run:
 
-### 2) Intelligent workflow with Mastra
+```bash
+npm run build
+npm run demo
+```
 
-Use Mastra to create tools and agents. The agent can draft posts and call tools to publish.
+### Option 2: AI-Powered Agent (Recommended)
 
-**Tool** (`src/mastra/tools/social-post-tool.ts`):
+The agent drafts content and publishes automatically.
+
+#### Create a Tool (`src/tools/social-post-tool.ts`)
 
 ```ts
 import { createTool } from "@mastra/core/tools";
@@ -135,11 +144,11 @@ export const socialPostTool = createTool({
 });
 ```
 
-**Agent** (`src/mastra/agents/social-agent.ts`):
+#### Create an Agent (`src/agent/social-agent.ts`)
 
 ```ts
 import { Agent } from "@mastra/core";
-import { socialPostTool } from "../tools/social-post-tool";
+import { socialPostTool } from "../tools/social-post-tool.js";
 
 export const socialAgent = new Agent({
   name: "social-bot",
@@ -153,83 +162,139 @@ export const socialAgent = new Agent({
 });
 ```
 
-**Mastra setup** (`src/mastra/index.ts`):
+#### Setup Mastra (`src/setup.ts`)
 
 ```ts
 import { Mastra } from "@mastra/core";
-import { socialAgent } from "./agents/social-agent";
+import { socialAgent } from "./agent/social-agent.js";
 
-export const mastra = new Mastra({ agents: { socialAgent } });
+export const mastra = new Mastra({
+  agents: { socialAgent },
+});
 ```
 
-**Runner** (`src/index.ts`):
+#### Run the Agent (`src/index.ts`)
 
 ```ts
-import { mastra } from "./mastra";
+import "dotenv/config";
+import { mastra } from "./setup.js";
 
 async function run() {
-  const agent = mastra.getAgent("socialAgent");
-  const result = await agent.generate(
-    `Create a fun launch post for our new AI feature and then publish it to Twitter and LinkedIn. The feature: "Automatic weekly summaries of your team Slack channels." Use the social-post tool to actually publish.`
-  );
+  try {
+    const agent = mastra.getAgent("socialAgent");
 
-  console.log(result.text);
+    const result = await agent.generate(
+      `Create a post about "Daily standup meetings are overrated. Here's what works better." ` +
+        `Make it thought-provoking but respectful. Post to Twitter and LinkedIn.`,
+      { maxSteps: 5 }
+    );
+
+    console.log("Result:", result.text);
+    console.log("Tool Calls:", JSON.stringify(result.toolCalls, null, 2));
+    console.log("Tool Results:", JSON.stringify(result.toolResults, null, 2));
+  } catch (error) {
+    console.error("Error:", error);
+  }
 }
 
-run().catch(console.error);
+run();
 ```
 
-**Run it:**
+#### Build and Run
 
 ```bash
 npm run build
 npm start
 ```
 
-## Alternatives — rolling your own connectors
-
-If you prefer to implement your own connectors per platform (for finer control, richer features, or to avoid third-party multi-network providers), consider these TypeScript-friendly clients:
-
-- Twitter/X: `twitter-api-v2`
-- Instagram: `instagram-private-api` (private API clients may violate platform terms; use with caution)
-- Reddit: `snoowrap` (+ `snoostorm` for streaming/event-style bots)
-
-Wrap each API in a Mastra tool (for example, `twitterPostTool`, `redditPostTool`), and let the agent decide which tool(s) to call based on the request.
-
-## Troubleshooting
-
-- **Posts fail**: Check API credentials and rate limits
-- **Build errors**: Run `npm install` to ensure all dependencies are installed
-- **Type errors**: Run `npm run typecheck` to see detailed TypeScript errors
-
 ## Project Structure
 
 ```
 social-bot/
 ├── src/
-│   ├── mastra/
-│   │   ├── tools/
-│   │   │   └── social-post-tool.ts    # Ayrshare posting tool
-│   │   ├── agents/
-│   │   │   └── social-agent.ts        # Mastra agent definition
-│   │   └── index.ts                   # Mastra setup
-│   ├── index.ts                       # Main runner (with Mastra)
-│   └── simple-demo.ts                 # Simple demo (no AI)
-├── .env.example                       # Environment variable template
+│   ├── agent/
+│   │   └── social-agent.ts        # Agent configuration
+│   ├── tools/
+│   │   └── social-post-tool.ts    # Social posting tool
+│   ├── setup.ts                   # Mastra initialization
+│   ├── index.ts                   # Main entry point
+│   └── simple-demo.ts             # Direct API example
+├── .env.example                   # Environment template
 ├── package.json
 ├── tsconfig.json
 └── README.md
 ```
 
-## Scripts
+## Available Scripts
 
 ```bash
 npm run typecheck    # Type-check without building
 npm run build        # Compile TypeScript to dist/
-npm start            # Run Mastra agent (dist/index.js)
+npm start            # Run agent (dist/index.js)
 npm run demo         # Run simple demo (dist/simple-demo.js)
 ```
 
+## API Reference
+
+### `socialPostTool`
+
+Mastra tool for posting to social media platforms.
+
+**Parameters:**
+
+- `text` (string) — Post content
+- `platforms` (array) — Platform names: `"twitter"`, `"facebook"`, `"linkedin"`, `"instagram"`, `"reddit"`, `"tiktok"`, `"youtube"`
+
+**Returns:**
+
+- `output` (string) — Success message
+- `id` (string, optional) — Post ID from Ayrshare
+
+### `socialAgent`
+
+Mastra agent configured for social media content generation.
+
+**Configuration:**
+
+- **Model:** `openai/gpt-4o-mini`
+- **Tools:** `socialPostTool`
+- **Instructions:** Craft engaging, platform-appropriate posts
+
+**Methods:**
+
+```ts
+agent.generate(prompt: string, options?: { maxSteps?: number })
+```
+
+## Contributing
+
+Contributions welcome! To extend the bot:
+
+1. **Add new tools** in `src/tools/`
+2. **Create custom agents** in `src/agent/`
+3. **Wire them up** in `src/setup.ts`
+
+Example: Add a Twitter-specific tool using `twitter-api-v2` for advanced features like threads or polls.
+
+## Troubleshooting
+
+| Issue                   | Solution                                                    |
+| ----------------------- | ----------------------------------------------------------- |
+| Posts fail              | Verify API keys in `.env` and check Ayrshare rate limits    |
+| Build errors            | Run `npm install` to ensure dependencies are installed      |
+| Type errors             | Run `npm run typecheck` for detailed TypeScript diagnostics |
+| Agent doesn't call tool | Ensure prompt explicitly asks to "publish" or "post"        |
+
+## Resources
+
+- [Mastra Documentation](https://docs.mastra.ai)
+- [Ayrshare API Docs](https://docs.ayrshare.com)
+- [OpenAI API Reference](https://platform.openai.com/docs)
+
 ## License
 
-MIT
+MIT — See [LICENSE](LICENSE) file for details.
+
+---
+
+**Built with** [Mastra](https://mastra.ai) • [Ayrshare](https://ayrshare.com) • [OpenAI](https://openai.com)
