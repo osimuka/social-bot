@@ -1,5 +1,5 @@
 import { Agent } from "@mastra/core";
-import { socialPostTool } from "../tools/social-post-tool";
+import { socialPostTool } from "../tools/social-post-tool.js";
 
 export const socialAgent = new Agent({
   name: "social-bot",
